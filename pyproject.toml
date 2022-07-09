@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "liz"
+version = "0.0.0"
+authors = [
+  { name="Aleksandr Derbenev", email="ya.alex-ac@yandex.com" },
+]
+description = "A tool for building toolchains and SDKs."
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX",
+    "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
+]
+
+[project.scripts]
+liz = "liz.cli:run"
+
+[project.urls]
+"Homepage" = "https://github.com/alex-ac/tools"
+"Bug Tracker" = "https://github.com/alex-ac/tools/issues"
