@@ -1,13 +1,21 @@
 import dataclasses
 import enum
+import logging
+import pathlib
 import platform
 import shutil
-import pathlib
 import urllib.request
+import pkgutil
+import importlib
+
+from . import recipies
 
 from typing import (
     ClassVar, TypeVar, Type, Optional, Generic, cast
 )
+
+
+log = logging.getLogger(__name__)
 
 
 class UnsupportedHostPlatformError(Exception):
@@ -108,10 +116,14 @@ def detect_archive_extensions():
 class BaseBuildContext:
     distfiles: pathlib.Path
     srcs: pathlib.Path
+    work: pathlib.Path
+    roots: pathlib.Path
+    logs: pathlib.Path
 
     archive_extensions: ClassVar[set[str]] = detect_archive_extensions()
 
     def copytree(self, src: pathlib.Path, dest: pathlib.Path) -> None:
+        log.info('copytree %s -> %s', src, dest)
         return shutil.copytree(src, dest)
 
     def is_archive(self, path: pathlib.Path) -> bool:
@@ -125,6 +137,7 @@ class BaseBuildContext:
         if not self.is_archive(src):
             return
 
+        log.info('unpack %s -> %s', src, dest)
         shutil.unpack_archive(src, extract_dir=dest)
 
 
@@ -141,8 +154,21 @@ class BuildContext(BaseBuildContext):
 T = TypeVar('T', bound='Recipy')
 
 
+REGISTERED_RECIPIES = {}
+
+
+class RecipyMeta(type):
+    def __new__(metaclass, name, bases, attrs, register=True, **kwargs):
+        cls = type.__new__(metaclass, name, bases, attrs, **kwargs)
+
+        if register:
+            REGISTERED_RECIPIES[cls.name] = cls
+
+        return cls
+
+
 @dataclasses.dataclass(frozen=True)
-class Recipy:
+class Recipy(metaclass=RecipyMeta, register=False):
     name: ClassVar[str]
 
     version: str
@@ -167,6 +193,7 @@ class Recipy:
             if path.exists():
                 continue
 
+            log.info('fetch %s -> %s', url, path)
             urllib.request.urlretrieve(url, filename=path)
 
     def unpack(self, ctx: BaseBuildContext):
@@ -181,7 +208,17 @@ class Recipy:
 
     @classmethod
     def collect(cls: Type[T]) -> dict[str, Type[T]]:
-        return {}
+        log.info('Collecting recipies...')
+        for moduleinfo in pkgutil.walk_packages(
+                recipies.__path__, recipies.__package__ + '.'):
+            log.info('> Importing %s', moduleinfo.name)
+            importlib.import_module(moduleinfo.name)
+
+        log.info(
+            'Collected %d recipies: %s', len(REGISTERED_RECIPIES),
+            ', '.join(REGISTERED_RECIPIES))
+
+        return REGISTERED_RECIPIES
 
 
 class MutableRecipy(Generic[T]):
